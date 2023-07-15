@@ -7,7 +7,6 @@
 typedef struct regressaoLinear {
   double B0;
   double B1;
-  double cDeterminacao;
 } RegressaoLinear;
 
 // u(t) : N = β0 + β1t + β2t
@@ -16,7 +15,6 @@ typedef struct regressaoQuadratica
   double B0;
   double B1;
   double B2;
-  double cDeterminacao;
 } RegressaoQuadratica;
 
 typedef struct dados {
@@ -105,7 +103,7 @@ void gaussElimination(double M[ROWS][COLS], Dados* dados)
 
 }
 
-void regressaoLinear(double matrixDeSomatorio[ROWS][COLS], double vetorX[TAM], double vetorY[TAM], double somatorioDeYAoQuadrado, double somatorioDeY)
+double regressaoLinear(double matrixDeSomatorio[ROWS][COLS], double vetorX[TAM], double vetorY[TAM], double somatorioDeYAoQuadrado, double somatorioDeY)
 {
   Dados dados;
   dados.rLinear = malloc(sizeof(RegressaoLinear));
@@ -131,10 +129,10 @@ void regressaoLinear(double matrixDeSomatorio[ROWS][COLS], double vetorX[TAM], d
 
   rAoQuadrado = 1 - (somatorioDiAoQuadrado / temp);
   printf("Coeficiente de Determinacao: %lf\n", rAoQuadrado);
-  dados.rLinear->cDeterminacao = rAoQuadrado;
+  return rAoQuadrado;
 }
 
-void regressaoQuadratica(double matrixDeSomatorio[ROWS][COLS], double vetorX[TAM], double vetorY[TAM], double vetorXAoQuadrado[TAM], double somatorioDeYAoQuadrado, double somatorioDeY)
+double regressaoQuadratica(double matrixDeSomatorio[ROWS][COLS], double vetorX[TAM], double vetorY[TAM], double vetorXAoQuadrado[TAM], double somatorioDeYAoQuadrado, double somatorioDeY)
 {
   Dados dados;
   dados.rLinear = malloc(sizeof(RegressaoLinear));
@@ -161,7 +159,7 @@ void regressaoQuadratica(double matrixDeSomatorio[ROWS][COLS], double vetorX[TAM
 
   rAoQuadrado = 1 - (somatorioVetorDiAoQuadrado / temp);
   printf("Coeficiente de Determinacao: %lf\n", rAoQuadrado);
-  dados.rQuadratica->cDeterminacao = rAoQuadrado;
+  return rAoQuadrado;
 }
 
 
@@ -233,7 +231,7 @@ int main(char argc, char argv[]) {
       {somatorioDeX, somatorioDeXAoQuadrado, somatorioDeXVezesY},
   };
 
-  regressaoLinear(matrizRegressaoLinear, vetorX, vetorY, somatorioDeYAoQuadrado, somatorioDeY);
+  double cDeterminacaoRegressaoLinear = regressaoLinear(matrizRegressaoLinear, vetorX, vetorY, somatorioDeYAoQuadrado, somatorioDeY);
 
   ROWS = 3;
   COLS = 4;
@@ -244,9 +242,15 @@ int main(char argc, char argv[]) {
       {somatorioDeXAoQuadrado, somatorioDeXAoCubo, somatorioDeXAQuarta, somatorioDeYVezesXAoQuadrado},
   };
 
-  regressaoQuadratica(matrizRegressaoQuadratica, vetorX, vetorY, xAoQuadrado, somatorioDeYAoQuadrado, somatorioDeY);
+  double cDeterminacaoRegressaoQuadratica = regressaoQuadratica(matrizRegressaoQuadratica, vetorX, vetorY, xAoQuadrado, somatorioDeYAoQuadrado, somatorioDeY);
 
   printf("\n");
+
+  if(cDeterminacaoRegressaoLinear > cDeterminacaoRegressaoQuadratica) {
+    printf("Regressao Linear melhor se ajustou aos dados\nr^2 = %lf", cDeterminacaoRegressaoLinear);
+  } else {
+      printf("Regressao Quadratica melhor se ajustou aos dados\nr^2 = %lf", cDeterminacaoRegressaoQuadratica);
+  }
 
   fclose(arquivo);
   return 0;
