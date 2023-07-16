@@ -17,9 +17,17 @@ typedef struct regressaoQuadratica
   double B2;
 } RegressaoQuadratica;
 
+// u(t) : N = β0e^(β1t)
+typedef struct regressaoNaoLinear
+{
+  double B0;
+  double B1;
+} RegressaoNaoLinear;
+
 typedef struct dados {
   RegressaoLinear* rLinear;
   RegressaoQuadratica* rQuadratica;
+  RegressaoNaoLinear* rNaoLinear;
 } Dados;
 
 //#define TAM 48
@@ -40,7 +48,7 @@ void print_matrix(double matrix[ROWS][COLS])
   }
 }
 
-void gaussElimination(double M[ROWS][COLS], Dados* dados)
+void gaussElimination(double M[ROWS][COLS], Dados* dados, int tipo)     //tipo == 0: Regressão Linear | tipo == 1: Regressão Quadrática | tipo == 2: Regressão Não Linear
 {
   double M2[ROWS][COLS];
 
@@ -90,15 +98,18 @@ void gaussElimination(double M[ROWS][COLS], Dados* dados)
     x[i] = (M2[i][ROWS] - sum) / M2[i][i];
   }
 
-  if(ROWS == 2) {
+  if(tipo == 0) {
     dados->rLinear->B0 = x[0];
     dados->rLinear->B1 = x[1];
-    printf("Regressao Linear\n");
-  } else {
+  }
+  else if(tipo == 1) {
     dados->rQuadratica->B0 = x[0];
     dados->rQuadratica->B1 = x[1];
     dados->rQuadratica->B2 = x[2];
-    printf("Regressao Quadratica\n");
+  }
+  else if(tipo == 2) {
+    dados->rNaoLinear->B0 = exp(x[0]);     //Esse é o único caso onde Bi não é, diretamente, x[i]. B0 na verdade é log de x[0] na base e (número de Euler), ou seja B0 = exp(x[0]), portanto precisamos fazer uma substituição
+    dados->rNaoLinear->B1 = x[1];
   }
 
 }
@@ -107,7 +118,6 @@ double regressaoLinear(double matrixDeSomatorio[ROWS][COLS], double vetorX[TAM],
 {
   Dados dados;
   dados.rLinear = malloc(sizeof(RegressaoLinear));
-  dados.rQuadratica = malloc(sizeof(RegressaoQuadratica));
 
   double *vetorUi = malloc(sizeof(double) * TAM);
   double *vetorDi = malloc(sizeof(double) * TAM);
@@ -115,7 +125,8 @@ double regressaoLinear(double matrixDeSomatorio[ROWS][COLS], double vetorX[TAM],
   double somatorioDiAoQuadrado = 0.0;
   double rAoQuadrado = 0.0;
   
-  gaussElimination(matrixDeSomatorio, &dados);
+  gaussElimination(matrixDeSomatorio, &dados, 0);
+  printf("Regressao Linear\n");
   printf("b0: %lf\nb1: %lf\n", dados.rLinear->B0, dados.rLinear->B1);
   for (int i = 0; i < TAM; i++)
   {
@@ -135,7 +146,6 @@ double regressaoLinear(double matrixDeSomatorio[ROWS][COLS], double vetorX[TAM],
 double regressaoQuadratica(double matrixDeSomatorio[ROWS][COLS], double vetorX[TAM], double vetorY[TAM], double vetorXAoQuadrado[TAM], double somatorioDeYAoQuadrado, double somatorioDeY)
 {
   Dados dados;
-  dados.rLinear = malloc(sizeof(RegressaoLinear));
   dados.rQuadratica = malloc(sizeof(RegressaoQuadratica));
 
   double *vetorUi = malloc(sizeof(double) * TAM);
@@ -144,7 +154,8 @@ double regressaoQuadratica(double matrixDeSomatorio[ROWS][COLS], double vetorX[T
 
   double rAoQuadrado = 0.0;
 
-  gaussElimination(matrixDeSomatorio, &dados);
+  gaussElimination(matrixDeSomatorio, &dados, 1);
+  printf("Regressao Quadratica\n");
   printf("b0: %lf\nb1: %lf\nb2: %lf\n", dados.rQuadratica->B0, dados.rQuadratica->B1, dados.rQuadratica->B2);
 
   for (int i = 0; i < TAM; i++)
@@ -162,6 +173,35 @@ double regressaoQuadratica(double matrixDeSomatorio[ROWS][COLS], double vetorX[T
   return rAoQuadrado;
 }
 
+double regressaoNaoLinear(double matrixDeSomatorio[ROWS][COLS], double vetorX[TAM], double vetorY[TAM], double somatorioDeYAoQuadrado, double somatorioDeY)
+{
+  Dados dados;
+  dados.rNaoLinear = malloc(sizeof(RegressaoNaoLinear));
+
+  double *vetorUi = malloc(sizeof(double) * TAM);
+  double *vetorDi = malloc(sizeof(double) * TAM);
+
+  double somatorioDiAoQuadrado = 0.0;
+  double rAoQuadrado = 0.0;
+  
+  gaussElimination(matrixDeSomatorio, &dados, 2);
+  printf("Regressao Nao Linear\n");
+  printf("b0: %lf\nb1: %lf\n", dados.rNaoLinear->B0, dados.rNaoLinear->B1);
+  for (int i = 0; i < TAM; i++)
+  {
+    vetorUi[i] = dados.rNaoLinear->B0 * exp(dados.rNaoLinear->B1 * vetorX[i]);
+    vetorDi[i] = vetorY[i] - vetorUi[i];
+    somatorioDiAoQuadrado += pow(vetorDi[i], 2);
+  }
+
+  double tamanho = TAM;
+  double temp = (somatorioDeYAoQuadrado - (pow(somatorioDeY, 2)) / tamanho);
+
+  rAoQuadrado = 1 - (somatorioDiAoQuadrado / temp);
+  printf("Coeficiente de Determinacao: %lf\n", rAoQuadrado);
+  return rAoQuadrado;
+}
+
 
 int main(char argc, char argv[]) {
   FILE* arquivo = fopen("dados.txt", "r");
@@ -174,6 +214,8 @@ int main(char argc, char argv[]) {
   double* vetorY = malloc(sizeof(double) * TAM);
   double* yAoQuadrado = malloc(sizeof(double) * TAM);
   double* xVezesY = malloc(sizeof(double) * TAM);
+  double* LogNaturalDeY = malloc(sizeof(double) * TAM);
+  double* XVezesLogNaturalDeY = malloc(sizeof(double) * TAM);
 
   double somatorioDeX = 0.0;
   double somatorioDeXAoQuadrado = 0.0;
@@ -184,6 +226,8 @@ int main(char argc, char argv[]) {
   double somatorioDeXVezesY = 0.0;
   double somatorioDeYVezesXAoQuadrado = 0.0;
   double somatorioDeYAoQuadrado = 0.0;
+  double somatorioDeLogNaturalDeY = 0.0;
+  double somatorioDeXVezesLogNaturalDeY = 0.0;
 
   if (arquivo == NULL)
   {
@@ -201,6 +245,8 @@ int main(char argc, char argv[]) {
       xAQuarta[i] = pow(vetorX[i], 4);
       xVezesY[i] = vetorX[i] * vetorY[i];
       yAoQuadrado[i] = pow(vetorY[i], 2);
+      LogNaturalDeY[i] = log(vetorY[i]);
+      XVezesLogNaturalDeY[i] = vetorX[i] * log(vetorY[i]);
     }
   }
 
@@ -221,6 +267,8 @@ int main(char argc, char argv[]) {
     somatorioDeYAoQuadrado += yAoQuadrado[i];
     somatorioDeXVezesY += xVezesY[i];
     somatorioDeYVezesXAoQuadrado += vetorY[i] * xAoQuadrado[i];
+    somatorioDeLogNaturalDeY += LogNaturalDeY[i];
+    somatorioDeXVezesLogNaturalDeY += XVezesLogNaturalDeY[i];
   }
 
   ROWS = 2;
@@ -244,12 +292,26 @@ int main(char argc, char argv[]) {
 
   double cDeterminacaoRegressaoQuadratica = regressaoQuadratica(matrizRegressaoQuadratica, vetorX, vetorY, xAoQuadrado, somatorioDeYAoQuadrado, somatorioDeY);
 
+  ROWS = 2;
+  COLS = 3;
+
+  double matrizRegressaoNaoLinear[2][3] = {
+      {TAM, somatorioDeX, somatorioDeLogNaturalDeY},
+      {somatorioDeX, somatorioDeXAoQuadrado, somatorioDeXVezesLogNaturalDeY},
+  };
+
+  double cDeterminacaoRegressaoNaoLinear = regressaoNaoLinear(matrizRegressaoNaoLinear, vetorX, vetorY, somatorioDeYAoQuadrado, somatorioDeY);
+
   printf("\n");
 
-  if(cDeterminacaoRegressaoLinear > cDeterminacaoRegressaoQuadratica) {
+  if(cDeterminacaoRegressaoLinear > cDeterminacaoRegressaoQuadratica && cDeterminacaoRegressaoLinear > cDeterminacaoRegressaoNaoLinear) {
     printf("Regressao Linear melhor se ajustou aos dados\nr^2 = %lf", cDeterminacaoRegressaoLinear);
-  } else {
-      printf("Regressao Quadratica melhor se ajustou aos dados\nr^2 = %lf", cDeterminacaoRegressaoQuadratica);
+  }
+  else if (cDeterminacaoRegressaoQuadratica > cDeterminacaoRegressaoNaoLinear){
+    printf("Regressao Quadratica melhor se ajustou aos dados\nr^2 = %lf", cDeterminacaoRegressaoQuadratica);
+  }
+  else{
+    printf("Regressao Não Linear melhor se ajustou aos dados\nr^2 = %lf", cDeterminacaoRegressaoNaoLinear);
   }
 
   fclose(arquivo);
